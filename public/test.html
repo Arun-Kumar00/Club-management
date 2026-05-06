@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Club Management — API Tester</title>
+<style>
+  :root {
+    --bg: #0f0f11;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #6c63ff;
+    --accent2: #4ade80;
+    --accent3: #f87171;
+    --accent4: #fbbf24;
+    --text: #e8e8f0;
+    --muted: #888898;
+    --radius: 10px;
+    --font: 'SF Mono', 'Fira Code', monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+  /* Layout */
+  .layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .main { padding: 32px; max-width: 960px; }
+
+  /* Sidebar */
+  .logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo h1 { font-size: 14px; font-weight: 700; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+  .logo p { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  .section-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; padding: 12px 20px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 20px; cursor: pointer; font-size: 13px; color: var(--muted); transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active { color: var(--text); background: var(--surface2); border-left-color: var(--accent); }
+  .nav-method { font-size: 10px; font-weight: 700; font-family: var(--font); padding: 2px 6px; border-radius: 4px; min-width: 38px; text-align: center; }
+  .GET  { background: #1a3a2a; color: var(--accent2); }
+  .POST { background: #1e2a4a; color: #60a5fa; }
+  .PUT  { background: #3a2a10; color: var(--accent4); }
+  .DEL  { background: #3a1a1a; color: var(--accent3); }
+
+  /* Base URL bar */
+  .url-bar { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 28px; }
+  .url-bar label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .url-bar input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--font); font-size: 13px; }
+
+  /* Card */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  .card-header h2 { font-size: 14px; font-weight: 600; }
+  .card-header p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .card-body { padding: 20px; }
+
+  /* Sections */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Form elements */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-grid.single { grid-template-columns: 1fr; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: 12px; color: var(--muted); font-weight: 500; }
+  input, select, textarea {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 7px;
+    padding: 9px 12px; color: var(--text); font-size: 13px; font-family: inherit;
+    outline: none; transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #5a52e0; }
+  .btn-danger { background: #7f1d1d; color: var(--accent3); }
+  .btn-danger:hover { background: #991b1b; }
+  .btn-warning { background: #451a03; color: var(--accent4); }
+  .btn-warning:hover { background: #78350f; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+  /* Response box */
+  .response-box { margin-top: 20px; }
+  .response-box label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .status-badge { padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; font-family: var(--font); }
+  .status-2xx { background: #1a3a2a; color: var(--accent2); }
+  .status-4xx { background: #3a1a1a; color: var(--accent3); }
+  .status-err { background: #3a2a10; color: var(--accent4); }
+  pre { background: #0c0c0e; border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: var(--font); font-size: 12px; color: #c9c9d8; overflow-x: auto; max-height: 400px; overflow-y: auto; line-height: 1.7; white-space: pre-wrap; }
+
+  /* Loading spinner */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ffffff44; border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* Auth section special */
+  .auth-status { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface2); border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 20px; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.green { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+  .dot.red { background: var(--accent3); }
+
+  .info-box { background: #1a1a2e; border: 1px solid #2e2e58; border-radius: 8px; padding: 14px 16px; font-size: 12px; color: #8888cc; line-height: 1.8; margin-bottom: 20px; }
+  .info-box strong { color: var(--accent); }
+
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-family: var(--font); background: #1e1e2e; color: #8888cc; border: 1px solid #2e2e48; }
+
+  @media(max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { height: auto; position: relative; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <h1>⚡ API Tester</h1>
+      <p>Club Management System</p>
+    </div>
+
+    <div class="section-label">Auth</div>
+    <div class="nav-item active" onclick="show('auth')">
+      <span class="nav-method GET">INFO</span> Google Sign-In
+    </div>
+
+    <div class="section-label">Club Access</div>
+    <div class="nav-item" onclick="show('clubs-add')">
+      <span class="nav-method POST">POST</span> Add Club Access
+    </div>
+    <div class="nav-item" onclick="show('clubs-list')">
+      <span class="nav-method GET">GET</span> List All Access
+    </div>
+    <div class="nav-item" onclick="show('clubs-del')">
+      <span class="nav-method DEL">DEL</span> Remove Access
+    </div>
+
+    <div class="section-label">Teachers</div>
+    <div class="nav-item" onclick="show('t-list')">
+      <span class="nav-method GET">GET</span> Get Teachers
+    </div>
+    <div class="nav-item" onclick="show('t-add')">
+      <span class="nav-method POST">POST</span> Add Teacher
+    </div>
+    <div class="nav-item" onclick="show('t-update')">
+      <span class="nav-method PUT">PUT</span> Update Teacher
+    </div>
+    <div class="nav-item" onclick="show('t-delete')">
+      <span class="nav-method DEL">DEL</span> Delete Teacher
+    </div>
+
+    <div class="section-label">Students</div>
+    <div class="nav-item" onclick="show('s-list')">
+      <span class="nav-method GET">GET</span> Get Students
+    </div>
+    <div class="nav-item" onclick="show('s-add')">
+      <span class="nav-method POST">POST</span> Add Student
+    </div>
+    <div class="nav-item" onclick="show('s-update')">
+      <span class="nav-method PUT">PUT</span> Update Student
+    </div>
+    <div class="nav-item" onclick="show('s-delete')">
+      <span class="nav-method DEL">DEL</span> Delete Student
+    </div>
+
+    <div class="section-label">Dashboard</div>
+    <div class="nav-item" onclick="show('dashboard')">
+      <span class="nav-method GET">GET</span> Club Dashboard
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- BASE URL -->
+    <div class="url-bar">
+      <label>BASE URL</label>
+      <input type="text" id="baseUrl" value="http://localhost:3000" placeholder="http://localhost:3000" />
+    </div>
+
+    <!-- ===== AUTH ===== -->
+    <div class="panel active" id="panel-auth">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h2>🔐 Google Sign-In (NextAuth)</h2>
+            <p>Authentication is handled by NextAuth — not a raw API call</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">
+            <strong>How login works in this system:</strong><br>
+            1. User clicks "Sign in with Google" on <span class="tag">/login</span><br>
+            2. Google redirects back with the user's email<br>
+            3. NextAuth checks <strong>ClubAccess</strong> DB — if email exists → session created with <span class="tag">clubCode</span><br>
+            4. User is redirected to <span class="tag">/dashboard</span><br>
+            5. Dashboard reads <span class="tag">session.user.clubCode</span> and fetches data<br><br>
+            <strong>To test auth:</strong> Just visit your app at the base URL and click "Sign in with Google". All other APIs below require an active session cookie.
+          </div>
+
+          <div class="auth-status" id="authStatus">
+            <div class="dot red" id="authDot"></div>
+            <span id="authText">Checking session...</span>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="checkSession()">Check Session</button>
+            <button class="btn" style="background:var(--surface2);color:var(--text)" onclick="openLogin()">Open Login Page →</button>
+          </div>
+
+          <div class="response-box" id="auth-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ADD CLUB ACCESS ===== -->
+    <div class="panel" id="panel-clubs-add">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method POST" style="font-size:12px;padding:4px 10px">POST</span>
+          <div><h2>Add Club Access</h2><p>Whitelist an email → club mapping</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">POST /api/clubs</span> — Add an email so that person can log in with Google and get routed to the right club.</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Email *</label>
+              <input type="email" id="ca-email" placeholder="admin@college.edu" />
+            </div>
+            <div class="field">
+              <label>Club Code *</label>
+              <input type="text" id="ca-code" placeholder="tc" maxlength="5" />
+            </div>
+            <div class="field" style="grid-column: 1/-1">
+              <label>Club Name *</label>
+              <input type="text" id="ca-name" placeholder="Technical Club" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="addClubAccess()">Add Access</button>
+          </div>
+          <div class="response-box" id="ca-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== LIST CLUB ACCESS ===== -->
+    <div class="panel" id="panel-clubs-list">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method GET" style="font-size:12px;padding:4px 10px">GET</span>
+          <div><h2>List All Club Access</h2><p>See all whitelisted emails</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">GET /api/clubs</span></div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="listClubs()">Fetch All</button>
+          </div>
+          <div class="response-box" id="cl-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DELETE CLUB ACCESS ===== -->
+    <div class="panel" id="panel-clubs-del">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method DEL" style="font-size:12px;padding:4px 10px">DEL</span>
+          <div><h2>Remove Club Access</h2><p>Revoke access for an email</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">DELETE /api/clubs?email=...</span></div>
+          <div class="form-grid single">
+            <div class="field">
+              <label>Email to remove *</label>
+              <input type="email" id="cd-email" placeholder="admin@college.edu" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-danger" onclick="deleteClubAccess()">Remove Access</button>
+          </div>
+          <div class="response-box" id="cd-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== GET TEACHERS ===== -->
+    <div class="panel" id="panel-t-list">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method GET" style="font-size:12px;padding:4px 10px">GET</span>
+          <div><h2>Get Teachers</h2><p>Fetch teachers by club code</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">GET /api/teachers?clubCode=tc</span></div>
+          <div class="form-grid single">
+            <div class="field">
+              <label>Club Code</label>
+              <input type="text" id="tl-code" placeholder="tc" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="getTeachers()">Fetch Teachers</button>
+          </div>
+          <div class="response-box" id="tl-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ADD TEACHER ===== -->
+    <div class="panel" id="panel-t-add">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method POST" style="font-size:12px;padding:4px 10px">POST</span>
+          <div><h2>Add Teacher</h2><p>Add a coordinator or co-coordinator</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">POST /api/teachers</span> — JSON body</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Email *</label>
+              <input type="email" id="ta-email" placeholder="teacher@college.edu" />
+            </div>
+            <div class="field">
+              <label>Role *</label>
+              <select id="ta-role">
+                <option value="coordinator">Coordinator</option>
+                <option value="cocoordinator">Co-coordinator</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Club Code *</label>
+              <input type="text" id="ta-code" placeholder="tc" />
+            </div>
+            <div class="field">
+              <label>Club Name *</label>
+              <input type="text" id="ta-cname" placeholder="Technical Club" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="addTeacher()">Add Teacher</button>
+          </div>
+          <div class="response-box" id="ta-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== UPDATE TEACHER ===== -->
+    <div class="panel" id="panel-t-update">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method PUT" style="font-size:12px;padding:4px 10px">PUT</span>
+          <div><h2>Update Teacher</h2><p>Edit teacher role or details</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">PUT /api/teachers/:id</span> — Get the ID from the GET response</div>
+          <div class="form-grid">
+            <div class="field" style="grid-column:1/-1">
+              <label>Teacher ID (from DB) *</label>
+              <input type="text" id="tu-id" placeholder="6642abc123def..." style="font-family:var(--font);font-size:12px" />
+            </div>
+            <div class="field">
+              <label>New Email</label>
+              <input type="email" id="tu-email" placeholder="newemail@college.edu" />
+            </div>
+            <div class="field">
+              <label>New Role</label>
+              <select id="tu-role">
+                <option value="">— keep existing —</option>
+                <option value="coordinator">Coordinator</option>
+                <option value="cocoordinator">Co-coordinator</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-warning" onclick="updateTeacher()">Update Teacher</button>
+          </div>
+          <div class="response-box" id="tu-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DELETE TEACHER ===== -->
+    <div class="panel" id="panel-t-delete">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method DEL" style="font-size:12px;padding:4px 10px">DEL</span>
+          <div><h2>Delete Teacher</h2><p>Remove a teacher from the club</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">DELETE /api/teachers/:id</span></div>
+          <div class="form-grid single">
+            <div class="field">
+              <label>Teacher ID *</label>
+              <input type="text" id="td-id" placeholder="6642abc123def..." style="font-family:var(--font);font-size:12px" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-danger" onclick="deleteTeacher()">Delete Teacher</button>
+          </div>
+          <div class="response-box" id="td-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== GET STUDENTS ===== -->
+    <div class="panel" id="panel-s-list">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method GET" style="font-size:12px;padding:4px 10px">GET</span>
+          <div><h2>Get Students</h2><p>Fetch students with optional role filter</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">GET /api/students?clubCode=tc&role=GS</span> — role is optional</div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Club Code *</label>
+              <input type="text" id="sl-code" placeholder="tc" />
+            </div>
+            <div class="field">
+              <label>Role (optional filter)</label>
+              <select id="sl-role">
+                <option value="">All roles</option>
+                <option value="GS">GS</option>
+                <option value="DGS">DGS</option>
+                <option value="Executive">Executive</option>
+                <option value="Volunteer">Volunteer</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="getStudents()">Fetch Students</button>
+          </div>
+          <div class="response-box" id="sl-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ADD STUDENT ===== -->
+    <div class="panel" id="panel-s-add">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method POST" style="font-size:12px;padding:4px 10px">POST</span>
+          <div><h2>Add Student</h2><p>multipart/form-data (supports image upload)</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">
+            Endpoint: <span class="tag">POST /api/students</span> — FormData (not JSON)<br>
+            Photo is <strong>required</strong> for GS, DGS, Executive — optional for Volunteer.
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Name *</label>
+              <input type="text" id="sa-name" placeholder="John Doe" />
+            </div>
+            <div class="field">
+              <label>Email *</label>
+              <input type="email" id="sa-email" placeholder="john@college.edu" />
+            </div>
+            <div class="field">
+              <label>Role *</label>
+              <select id="sa-role">
+                <option value="GS">GS</option>
+                <option value="DGS">DGS</option>
+                <option value="Executive">Executive</option>
+                <option value="Volunteer">Volunteer</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Phone (optional)</label>
+              <input type="text" id="sa-phone" placeholder="9876543210" />
+            </div>
+            <div class="field">
+              <label>Club Code *</label>
+              <input type="text" id="sa-code" placeholder="tc" />
+            </div>
+            <div class="field">
+              <label>Club Name *</label>
+              <input type="text" id="sa-cname" placeholder="Technical Club" />
+            </div>
+            <div class="field" style="grid-column:1/-1">
+              <label>Photo (JPG/PNG — required for GS/DGS/Executive)</label>
+              <input type="file" id="sa-image" accept="image/*" style="padding:7px 12px;cursor:pointer" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="addStudent()">Add Student</button>
+          </div>
+          <div class="response-box" id="sa-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== UPDATE STUDENT ===== -->
+    <div class="panel" id="panel-s-update">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method PUT" style="font-size:12px;padding:4px 10px">PUT</span>
+          <div><h2>Update Student</h2><p>Edit student details or replace photo</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">PUT /api/students/:id</span></div>
+          <div class="form-grid">
+            <div class="field" style="grid-column:1/-1">
+              <label>Student ID *</label>
+              <input type="text" id="su-id" placeholder="6642abc123def..." style="font-family:var(--font);font-size:12px" />
+            </div>
+            <div class="field">
+              <label>Name</label>
+              <input type="text" id="su-name" placeholder="New Name" />
+            </div>
+            <div class="field">
+              <label>Role</label>
+              <select id="su-role">
+                <option value="">— keep existing —</option>
+                <option value="GS">GS</option>
+                <option value="DGS">DGS</option>
+                <option value="Executive">Executive</option>
+                <option value="Volunteer">Volunteer</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Phone</label>
+              <input type="text" id="su-phone" placeholder="9876543210" />
+            </div>
+            <div class="field">
+              <label>New Photo (optional)</label>
+              <input type="file" id="su-image" accept="image/*" style="padding:7px 12px;cursor:pointer" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-warning" onclick="updateStudent()">Update Student</button>
+          </div>
+          <div class="response-box" id="su-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DELETE STUDENT ===== -->
+    <div class="panel" id="panel-s-delete">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method DEL" style="font-size:12px;padding:4px 10px">DEL</span>
+          <div><h2>Delete Student</h2><p>Remove student + their photo</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Endpoint: <span class="tag">DELETE /api/students/:id</span> — also deletes the photo file from disk</div>
+          <div class="form-grid single">
+            <div class="field">
+              <label>Student ID *</label>
+              <input type="text" id="sd-id" placeholder="6642abc123def..." style="font-family:var(--font);font-size:12px" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-danger" onclick="deleteStudent()">Delete Student</button>
+          </div>
+          <div class="response-box" id="sd-res"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DASHBOARD PREVIEW ===== -->
+    <div class="panel" id="panel-dashboard">
+      <div class="card">
+        <div class="card-header">
+          <span class="nav-method GET" style="font-size:12px;padding:4px 10px">GET</span>
+          <div><h2>Club Dashboard Preview</h2><p>Fetch all teachers + students for a club</p></div>
+        </div>
+        <div class="card-body">
+          <div class="info-box">Calls both <span class="tag">GET /api/teachers</span> and <span class="tag">GET /api/students</span> simultaneously and renders a preview.</div>
+          <div class="form-grid single">
+            <div class="field">
+              <label>Club Code *</label>
+              <input type="text" id="db-code" placeholder="tc" />
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="loadDashboard()">Load Dashboard Data</button>
+          </div>
+          <div id="db-render" style="margin-top:20px"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+const base = () => document.getElementById('baseUrl').value.replace(/\/$/, '');
+
+function show(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function renderResponse(containerId, status, data) {
+  const el = document.getElementById(containerId);
+  const cls = status >= 200 && status < 300 ? 'status-2xx' : 'status-4xx';
+  el.innerHTML = `
+    <label>Response <span class="status-badge ${cls}">${status}</span></label>
+    <pre>${JSON.stringify(data, null, 2)}</pre>
+  `;
+}
+
+function renderError(containerId, err) {
+  document.getElementById(containerId).innerHTML = `
+    <label>Error <span class="status-badge status-err">Network</span></label>
+    <pre>${err}</pre>
+  `;
+}
+
+async function apiFetch(method, path, body, isForm = false) {
+  const opts = { method, credentials: 'include' };
+  if (body) {
+    if (isForm) { opts.body = body; }
+    else { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
+  }
+  const res = await fetch(base() + path, opts);
+  const data = await res.json();
+  return { status: res.status, data };
+}
+
+// ---- AUTH ----
+async function checkSession() {
+  try {
+    const { status, data } = await apiFetch('GET', '/api/auth/session');
+    const dot = document.getElementById('authDot');
+    const txt = document.getElementById('authText');
+    if (data?.user?.email) {
+      dot.className = 'dot green';
+      txt.textContent = `Logged in as ${data.user.email} — Club: ${data.user.clubName || 'Unknown'} (${data.user.clubCode || '?'})`;
+    } else {
+      dot.className = 'dot red';
+      txt.textContent = 'No active session — please sign in with Google';
+    }
+    renderResponse('auth-res', status, data);
+  } catch(e) { renderError('auth-res', e.message); }
+}
+
+function openLogin() {
+  window.open(base() + '/login', '_blank');
+}
+
+// ---- CLUB ACCESS ----
+async function addClubAccess() {
+  try {
+    const { status, data } = await apiFetch('POST', '/api/clubs', {
+      email: document.getElementById('ca-email').value,
+      clubCode: document.getElementById('ca-code').value,
+      clubName: document.getElementById('ca-name').value,
+    });
+    renderResponse('ca-res', status, data);
+  } catch(e) { renderError('ca-res', e.message); }
+}
+
+async function listClubs() {
+  try {
+    const { status, data } = await apiFetch('GET', '/api/clubs');
+    renderResponse('cl-res', status, data);
+  } catch(e) { renderError('cl-res', e.message); }
+}
+
+async function deleteClubAccess() {
+  try {
+    const email = encodeURIComponent(document.getElementById('cd-email').value);
+    const { status, data } = await apiFetch('DELETE', `/api/clubs?email=${email}`);
+    renderResponse('cd-res', status, data);
+  } catch(e) { renderError('cd-res', e.message); }
+}
+
+// ---- TEACHERS ----
+async function getTeachers() {
+  try {
+    const code = document.getElementById('tl-code').value;
+    const { status, data } = await apiFetch('GET', `/api/teachers?clubCode=${code}`);
+    renderResponse('tl-res', status, data);
+  } catch(e) { renderError('tl-res', e.message); }
+}
+
+async function addTeacher() {
+  try {
+    const { status, data } = await apiFetch('POST', '/api/teachers', {
+      email: document.getElementById('ta-email').value,
+      role: document.getElementById('ta-role').value,
+      clubCode: document.getElementById('ta-code').value,
+      clubName: document.getElementById('ta-cname').value,
+    });
+    renderResponse('ta-res', status, data);
+  } catch(e) { renderError('ta-res', e.message); }
+}
+
+async function updateTeacher() {
+  try {
+    const id = document.getElementById('tu-id').value;
+    const body = {};
+    const email = document.getElementById('tu-email').value;
+    const role = document.getElementById('tu-role').value;
+    if (email) body.email = email;
+    if (role) body.role = role;
+    const { status, data } = await apiFetch('PUT', `/api/teachers/${id}`, body);
+    renderResponse('tu-res', status, data);
+  } catch(e) { renderError('tu-res', e.message); }
+}
+
+async function deleteTeacher() {
+  try {
+    const id = document.getElementById('td-id').value;
+    const { status, data } = await apiFetch('DELETE', `/api/teachers/${id}`);
+    renderResponse('td-res', status, data);
+  } catch(e) { renderError('td-res', e.message); }
+}
+
+// ---- STUDENTS ----
+async function getStudents() {
+  try {
+    const code = document.getElementById('sl-code').value;
+    const role = document.getElementById('sl-role').value;
+    let path = `/api/students?clubCode=${code}`;
+    if (role) path += `&role=${role}`;
+    const { status, data } = await apiFetch('GET', path);
+    renderResponse('sl-res', status, data);
+  } catch(e) { renderError('sl-res', e.message); }
+}
+
+async function addStudent() {
+  try {
+    const fd = new FormData();
+    fd.append('name', document.getElementById('sa-name').value);
+    fd.append('email', document.getElementById('sa-email').value);
+    fd.append('role', document.getElementById('sa-role').value);
+    fd.append('phone', document.getElementById('sa-phone').value);
+    fd.append('clubCode', document.getElementById('sa-code').value);
+    fd.append('clubName', document.getElementById('sa-cname').value);
+    const img = document.getElementById('sa-image').files[0];
+    if (img) fd.append('image', img);
+
+    const res = await fetch(base() + '/api/students', { method: 'POST', body: fd, credentials: 'include' });
+    const data = await res.json();
+    renderResponse('sa-res', res.status, data);
+  } catch(e) { renderError('sa-res', e.message); }
+}
+
+async function updateStudent() {
+  try {
+    const id = document.getElementById('su-id').value;
+    const fd = new FormData();
+    const name = document.getElementById('su-name').value;
+    const role = document.getElementById('su-role').value;
+    const phone = document.getElementById('su-phone').value;
+    if (name) fd.append('name', name);
+    if (role) fd.append('role', role);
+    if (phone) fd.append('phone', phone);
+    const img = document.getElementById('su-image').files[0];
+    if (img) fd.append('image', img);
+
+    const res = await fetch(base() + `/api/students/${id}`, { method: 'PUT', body: fd, credentials: 'include' });
+    const data = await res.json();
+    renderResponse('su-res', res.status, data);
+  } catch(e) { renderError('su-res', e.message); }
+}
+
+async function deleteStudent() {
+  try {
+    const id = document.getElementById('sd-id').value;
+    const { status, data } = await apiFetch('DELETE', `/api/students/${id}`);
+    renderResponse('sd-res', status, data);
+  } catch(e) { renderError('sd-res', e.message); }
+}
+
+// ---- DASHBOARD PREVIEW ----
+async function loadDashboard() {
+  const code = document.getElementById('db-code').value;
+  const el = document.getElementById('db-render');
+  el.innerHTML = '<p style="color:var(--muted);font-size:13px">Loading...</p>';
+
+  try {
+    const [tRes, sRes] = await Promise.all([
+      fetch(base() + `/api/teachers?clubCode=${code}`, { credentials: 'include' }).then(r => r.json()),
+      fetch(base() + `/api/students?clubCode=${code}`, { credentials: 'include' }).then(r => r.json()),
+    ]);
+
+    const teachers = tRes.data || [];
+    const students = sRes.data || [];
+
+    const roleOrder = { GS: 0, DGS: 1, Executive: 2, Volunteer: 3 };
+    students.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+
+    const roleColor = { GS: '#6c63ff', DGS: '#4ade80', Executive: '#fbbf24', Volunteer: '#888898' };
+    const tcColor = { coordinator: '#6c63ff', cocoordinator: '#4ade80' };
+
+    el.innerHTML = `
+      <h3 style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">
+        📋 ${code.toUpperCase()} — ${teachers.length} teachers, ${students.length} students
+      </h3>
+
+      ${teachers.length ? `
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:600">TEACHERS</p>
+      <div style="display:grid;gap:10px;margin-bottom:24px">
+        ${teachers.map(t => `
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px">
+            <div>
+              <div style="font-size:13px;font-weight:600">${t.email}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${t.clubName}</div>
+            </div>
+            <span style="background:#1e1e40;color:${tcColor[t.role]};border:1px solid ${tcColor[t.role]}44;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">
+              ${t.role}
+            </span>
+          </div>
+        `).join('')}
+      </div>` : '<p style="color:var(--muted);font-size:12px;margin-bottom:20px">No teachers found.</p>'}
+
+      ${students.length ? `
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:600">STUDENTS</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">
+        ${students.map(s => `
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden">
+            ${s.imageUrl
+              ? `<img src="${base()}${s.imageUrl}" alt="${s.name}" style="width:100%;height:140px;object-fit:cover;display:block">`
+              : `<div style="width:100%;height:80px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:28px">👤</div>`
+            }
+            <div style="padding:12px">
+              <div style="font-size:13px;font-weight:600">${s.name}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px">${s.email}</div>
+              ${s.phone ? `<div style="font-size:11px;color:var(--muted)">${s.phone}</div>` : ''}
+              <div style="margin-top:8px">
+                <span style="background:#1e1e40;color:${roleColor[s.role]};border:1px solid ${roleColor[s.role]}44;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700">${s.role}</span>
+              </div>
+              <div style="margin-top:6px;font-size:10px;color:#444;font-family:var(--font)">${s._id}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>` : '<p style="color:var(--muted);font-size:12px">No students found.</p>'}
+    `;
+  } catch(e) {
+    el.innerHTML = `<p style="color:var(--accent3);font-size:13px">Error: ${e.message}</p>`;
+  }
+}
+
+// Auto-check session on load
+checkSession();
+</script>
+</body>
+</html>
